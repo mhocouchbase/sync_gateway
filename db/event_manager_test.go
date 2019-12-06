@@ -551,7 +551,7 @@ func TestWebhookBasic(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, "", channels)
 		assert.NoError(t, err)
 	}
-	err = wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
+	err = wr.waitForCount(context.TODO(), 100, base.DefaultWaitForWebhook)
 	assert.NoError(t, err)
 
 }
