@@ -452,7 +452,6 @@ func TestWebhookBasic(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, "", channels)
 		assert.NoError(t, err)
 	}
-	time.Sleep(50 * time.Millisecond)
 	err := wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
 	assert.NoError(t, err)
 
@@ -489,14 +488,12 @@ func TestWebhookBasic(t *testing.T) {
 	em.RegisterEventHandler(webhookHandler, DocumentChange)
 	body, docId, channels := eventForTest(0)
 	bodyBytes, _ := base.JSONMarshalCanonical(body)
-	err := em.RaiseDocumentChangeEvent(bodyBytes, docId, "", channels)
+	err = em.RaiseDocumentChangeEvent(bodyBytes, docId, "", channels)
 	assert.NoError(t, err)
 	time.Sleep(50 * time.Millisecond)
 	receivedPayload := string((wr.GetPayloads())[0])
 	fmt.Println("payload:", receivedPayload)
 	assert.Equal(t, `{"_id":"0","value":0}`, receivedPayload)
-	err = wr.waitForCount(context.TODO(), 1, base.DefaultWaitForWebhook)
-	assert.NoError(t, err)
 
 	// Test fast fill, fast webhook
 	log.Println("Test fast fill, fast webhook")
@@ -512,8 +509,8 @@ func TestWebhookBasic(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, "", channels)
 		assert.NoError(t, err)
 	}
-	time.Sleep(500 * time.Millisecond)
-	assert.Equal(t, 100, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 100, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 
 	// Test queue full, slow webhook.  Drops events
 	log.Println("Test queue full, slow webhook")
@@ -531,7 +528,6 @@ func TestWebhookBasic(t *testing.T) {
 			errCount++
 		}
 	}
-	time.Sleep(5 * time.Second)
 	// Expect 21 to complete.  5 get goroutines immediately, 15 get queued, and one is blocked waiting
 	// for a goroutine.  The rest get discarded because the queue is full.
 	err = wr.waitForCount(context.TODO(), 21, base.DefaultWaitForWebhook)
@@ -604,8 +600,8 @@ func TestWebhookOldDoc(t *testing.T) {
 		assert.NoError(t, err)
 
 	}
-	wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
-	assert.Equal(t, 10, wr.GetCount())
+	err := wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 	log.Printf("Actual: %v, Expected: %v", wr.GetCount(), 10)
 
 	// Test webhook where an old doc is passed and is not used by the filter
@@ -631,8 +627,8 @@ func TestWebhookOldDoc(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, string(oldBodyBytes), channels)
 		assert.NoError(t, err)
 	}
-	wr.waitForCount(context.TODO(), 4, base.DefaultWaitForWebhook)
-	assert.Equal(t, 4, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 4, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 	log.Printf("Actual: %v, Expected: %v", wr.GetCount(), 4)
 
 	// Test webhook where an old doc is passed and is validated by the filter
@@ -658,8 +654,8 @@ func TestWebhookOldDoc(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, string(oldBodyBytes), channels)
 		assert.NoError(t, err)
 	}
-	wr.waitForCount(context.TODO(), 4, base.DefaultWaitForWebhook)
-	assert.Equal(t, 4, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 4, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 	log.Printf("Actual: %v, Expected: %v", wr.GetCount(), 4)
 
 	// Test webhook where an old doc is not passed but is referenced in the filter function args
@@ -691,8 +687,8 @@ func TestWebhookOldDoc(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docId, string(oldBodyBytes), channels)
 		assert.NoError(t, err)
 	}
-	wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
-	assert.Equal(t, 10, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 	log.Printf("Actual: %v, Expected: %v", wr.GetCount(), 10)
 
 }
@@ -741,8 +737,8 @@ func TestWebhookTimeout(t *testing.T) {
 		err := em.RaiseDocumentChangeEvent(bodyBytes, docid, "", channels)
 		assert.NoError(t, err)
 	}
-	wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
-	assert.Equal(t, 10, wr.GetCount())
+	err := wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 
 	// Test slow webhook, short timeout, numProcess=1, waitForProcess > timeout.  All events should get processed.
 	log.Println("Test slow webhook, short timeout")
@@ -762,9 +758,9 @@ func TestWebhookTimeout(t *testing.T) {
 			errCount++
 		}
 	}
-	wr.waitForCount(context.TODO(), 10, 20*time.Second)
 	// Even though we timed out waiting for response on the SG side, POST still completed on target side.
-	assert.Equal(t, 10, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 10, 20*time.Second)
+	assert.NoError(t, err)
 
 	// Test slow webhook, short timeout, numProcess=1, waitForProcess << timeout.  Events that don't fit in queues
 	// should get dropped (1 immediately processed, 1 in normal queue, 3 in overflow queue, 5 dropped)
@@ -786,8 +782,8 @@ func TestWebhookTimeout(t *testing.T) {
 		}
 	}
 	// wait for slow webhook to finish processing
-	wr.waitForCount(context.TODO(), 5, 30*time.Second)
-	assert.Equal(t, 5, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 5, 30*time.Second)
+	assert.NoError(t, err)
 
 	// Test slow webhook, no timeout, numProcess=1, waitForProcess=1s.  All events should complete.
 	log.Println("Test slow webhook, no timeout, wait for process ")
@@ -808,8 +804,8 @@ func TestWebhookTimeout(t *testing.T) {
 		}
 	}
 	// wait for slow webhook to finish processing
-	wr.waitForCount(context.TODO(), 10, 20*time.Second)
-	assert.Equal(t, 10, wr.GetCount())
+	err = wr.waitForCount(context.TODO(), 10, base.DefaultWaitForWebhook)
+	assert.NoError(t, err)
 
 }
 
