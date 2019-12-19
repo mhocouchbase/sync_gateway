@@ -111,6 +111,8 @@ func (em *EventManager) ProcessEvent(event Event) {
 			} else {
 				em.IncrementEventsProcessedFail()
 			}
+			base.Tracef(base.KeyAll, "Webhook event processed %s", event.String())
+
 		}(event, handler)
 	}
 	wg.Wait()
@@ -136,6 +138,7 @@ func (em *EventManager) raiseEvent(event Event) error {
 		// Default value of (waitTime) is 5 ms.
 		select {
 		case em.asyncEventChannel <- event:
+			base.Tracef(base.KeyAll, "Event sent to channel %s", event.String())
 		case <-time.After(time.Duration(em.waitTime) * time.Millisecond):
 			// Event queue channel is full - ignore event and log error
 			base.Warnf("Event queue full - discarding event: %s", base.UD(event.String()))
