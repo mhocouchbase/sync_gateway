@@ -120,10 +120,6 @@ func NewTestBucketPool() *GocbTestBucketPool {
 		verbose:         verbose,
 	}
 
-	if err := tbp.removeOldTestBuckets(); err != nil {
-		log.Fatalf("Couldn't remove old test buckets: %v", err)
-	}
-
 	go tbp.bucketReadier(ctx)
 
 	if err := tbp.createTestBuckets(numBuckets); err != nil {
@@ -279,31 +275,47 @@ func (tbp *GocbTestBucketPool) createTestBuckets(numBuckets int) error {
 
 	wg := sync.WaitGroup{}
 
+	existingBuckets, err := tbp.clusterMgr.GetBuckets()
+	if err != nil {
+		return err
+	}
+
 	// create required buckets
 	for i := 0; i < numBuckets; i++ {
 		bucketName := testBucketNamePrefix + strconv.Itoa(i)
 		ctx := bucketNameCtx(context.Background(), bucketName)
-		tbp.Logf(ctx, "Creating new test bucket")
+
+		var bucketExists bool
+		for _, b := range existingBuckets {
+			if bucketName == b.Name {
+				tbp.Logf(ctx, "Skipping InsertBucket... Bucket already exists")
+				bucketExists = true
+			}
+		}
+
 		wg.Add(1)
 
 		// Bucket creation takes a few seconds for each bucket,
 		// so create and wait for readiness concurrently.
-		go func() {
-			err := tbp.clusterMgr.InsertBucket(&gocb.BucketSettings{
-				Name:          bucketName,
-				Quota:         testBucketQuotaMB,
-				Type:          gocb.Couchbase,
-				FlushEnabled:  true,
-				IndexReplicas: false,
-				Replicas:      0,
-			})
-			if err != nil {
-				tbp.Logf(ctx, "Couldn't create test bucket")
-				os.Exit(1)
-			}
+		go func(bucketExists bool) {
+			if !bucketExists {
+				tbp.Logf(ctx, "Creating new test bucket")
+				err := tbp.clusterMgr.InsertBucket(&gocb.BucketSettings{
+					Name:          bucketName,
+					Quota:         testBucketQuotaMB,
+					Type:          gocb.Couchbase,
+					FlushEnabled:  true,
+					IndexReplicas: false,
+					Replicas:      0,
+				})
+				if err != nil {
+					tbp.Logf(ctx, "Couldn't create test bucket: %v", err)
+					os.Exit(1)
+				}
 
-			// Have an initial wait for bucket creation before the OpenBucket retry starts
-			// time.Sleep(time.Second * 2 * time.Duration(numBuckets))
+				// Have an initial wait for bucket creation before the OpenBucket retry starts
+				// time.Sleep(time.Second * 2 * time.Duration(numBuckets))
+			}
 
 			bucketSpec := tbp.defaultBucketSpec
 			bucketSpec.BucketName = bucketName
@@ -331,7 +343,7 @@ func (tbp *GocbTestBucketPool) createTestBuckets(numBuckets int) error {
 			tbp.bucketReadierQueue <- gocbBucket
 
 			wg.Done()
-		}()
+		}(bucketExists)
 	}
 
 	wg.Wait()
