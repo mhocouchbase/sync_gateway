@@ -19,6 +19,10 @@ import (
 // Code that is test-related that needs to be accessible from non-base packages, and therefore can't live in
 // util_test.go, which is only accessible from the base package.
 
+// TestBucketPool is used to manage a pool of buckets for testing.
+// This can be safely nil to use Walrus test buckets.
+var TestBucketPool *GocbTestBucketPool
+
 var TestExternalRevStorage = false
 var numOpenBucketsByName map[string]int32
 var mutexNumOpenBucketsByName sync.Mutex
@@ -35,17 +39,19 @@ func init() {
 type TestBucket struct {
 	Bucket
 	BucketSpec BucketSpec
+	closeFn    func()
 }
 
 func (tb TestBucket) Close() {
-
-	tb.Bucket.Close()
-
-	DecrNumOpenBuckets(tb.Bucket.GetName())
+	tb.closeFn()
 }
 
-func GetTestBucket(tester testing.TB) TestBucket {
-	return GetBucketCommon(DataBucket, tester)
+func GetTestBucket(t testing.TB) TestBucket {
+	b, c := TestBucketPool.GetTestBucket(t)
+	return TestBucket{
+		Bucket:  b,
+		closeFn: c,
+	}
 }
 
 func GetTestIndexBucket(tester testing.TB) TestBucket {
@@ -254,12 +260,8 @@ func (tbm *TestBucketManager) Close() {
 	tbm.Bucket.Close()
 }
 
-// GOCB doesn't currently offer a way to do this, and so this is a workaround to go directly
-// to Couchbase Server REST API.
-// See https://forums.couchbase.com/t/is-there-a-way-to-get-the-number-of-items-in-a-bucket/12816/4
-// for GOCB discussion.
 func (tbm *TestBucketManager) BucketItemCount() (itemCount int, err error) {
-	return tbm.Bucket.BucketItemCount()
+	return tbm.Bucket.QueryBucketItemCount()
 }
 
 func (tbm *TestBucketManager) DropIndexes() error {

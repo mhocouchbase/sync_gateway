@@ -633,11 +633,15 @@ func SkipXattrTestsIfNotEnabled(t *testing.T) {
 // TestXattrWriteCasSimple.  Validates basic write of document with xattr, and retrieval of the same doc w/ xattr.
 func TestXattrWriteCasSimple(t *testing.T) {
 
+	defer SetUpTestLogging(LevelInfo, KeyAll)()
+
 	SkipXattrTestsIfNotEnabled(t)
 
-	testBucket := GetTestBucket(t)
-	defer testBucket.Close()
-	bucket := testBucket.Bucket
+	// testBucket := GetTestBucket(t)
+	// defer testBucket.Close()
+	// bucket := testBucket.Bucket
+	bucket, teardown := testBucketPool.GetTestBucket(t)
+	defer teardown()
 
 	key := "TestWriteCasXATTRSimple"
 	xattrName := SyncXattrName

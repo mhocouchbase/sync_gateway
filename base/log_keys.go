@@ -38,6 +38,7 @@ const (
 	KeySyncMsg
 	KeyWebSocket
 	KeyWebSocketFrame
+	KeySGTest
 )
 
 var (
@@ -65,6 +66,7 @@ var (
 		KeySyncMsg:        "SyncMsg",
 		KeyWebSocket:      "WS",
 		KeyWebSocketFrame: "WSFrame",
+		KeySGTest:         "~~~~~ TEST",
 	}
 
 	// Inverse of the map above. Optimisation for string -> LogKey lookups in ToLogKey
