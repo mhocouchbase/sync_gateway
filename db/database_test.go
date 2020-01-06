@@ -36,16 +36,6 @@ func init() {
 	underscore.Disable() // It really slows down unit tests (by making otto.New take a lot longer)
 }
 
-type UnitTestAuth struct {
-	Username   string
-	Password   string
-	Bucketname string
-}
-
-func (u *UnitTestAuth) GetCredentials() (string, string, string) {
-	return base.TransformBucketCredentials(u.Username, u.Password, u.Bucketname)
-}
-
 func testLeakyBucket(config base.LeakyBucketConfig, tester testing.TB) base.Bucket {
 
 	testBucket := testBucket(tester)
