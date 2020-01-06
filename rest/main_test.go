@@ -8,7 +8,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	base.TestBucketPool = base.NewTestBucketPool()
+	// rest tests require GSI
+	base.TestBucketPool = base.NewTestBucketPool(true)
 	defer base.TestBucketPool.Close()
 
 	os.Exit(m.Run())

@@ -8,7 +8,8 @@ import (
 )
 
 func TestMain(m *testing.M) {
-	base.TestBucketPool = base.NewTestBucketPool()
+	// auth tests don't require GSI
+	base.TestBucketPool = base.NewTestBucketPool(false)
 	defer base.TestBucketPool.Close()
 
 	os.Exit(m.Run())
