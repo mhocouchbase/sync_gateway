@@ -82,8 +82,8 @@ func testCluster(server string) *gocb.Cluster {
 	return cluster
 }
 
-// NewTestBucketPool initializes a new GocbTestBucketPool.
-// Set useGSI to false to skip index creation for tests that don't require GSI to speed up bucket readiness.
+// NewTestBucketPool initializes a new GocbTestBucketPool. To be called from TestMain for packages requiring test buckets.
+// Set useGSI to false to skip index creation for packages that don't require GSI, to speed up bucket readiness.
 func NewTestBucketPool(useGSI bool) *GocbTestBucketPool {
 	// We can safely skip setup when we want Walrus buckets to be used.
 	if !TestUseCouchbaseServer() {

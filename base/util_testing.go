@@ -20,7 +20,7 @@ import (
 // util_test.go, which is only accessible from the base package.
 
 // TestBucketPool is used to manage a pool of buckets for testing.
-// This can be safely nil to use Walrus test buckets.
+// This is safe to leave as nil to use Walrus test buckets.
 var TestBucketPool *GocbTestBucketPool
 
 var TestExternalRevStorage = false
