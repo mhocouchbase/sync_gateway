@@ -2350,14 +2350,14 @@ func (bucket *CouchbaseBucketGoCB) Flush() error {
 func (bucket *CouchbaseBucketGoCB) QueryBucketItemCount() (itemCount int, err error) {
 	r, err := bucket.Query("SELECT COUNT(1) AS count FROM `$_bucket`", nil, gocb.RequestPlus, true)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	var val struct {
 		Count int `json:"count"`
 	}
 	err = r.One(&val)
 	if err != nil {
-		return 0, err
+		return -1, err
 	}
 	return val.Count, nil
 }
