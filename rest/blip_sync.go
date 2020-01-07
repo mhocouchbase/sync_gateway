@@ -183,7 +183,7 @@ func (h *handler) handleBLIPSync() error {
 	}
 
 	ctx.blipContext.FatalErrorHandler = func(err error) {
-		ctx.Logf(base.LevelInfo, base.KeyHTTP, "%s:     --> BLIP+WebSocket connection error: %v", h.formatSerialNumber(), err)
+		base.InfofCtx(ctx.blipContextDb.Ctx, base.KeyHTTP, "%s:     --> BLIP+WebSocket connection error: %v", h.formatSerialNumber(), err)
 	}
 
 	// Create a BLIP WebSocket handler and have it handle the request:
@@ -193,7 +193,7 @@ func (h *handler) handleBLIPSync() error {
 		h.logStatus(101, fmt.Sprintf("[%s] Upgraded to BLIP+WebSocket protocol%s", blipContext.ID, h.formattedEffectiveUserName()))
 		defer func() {
 			_ = conn.Close() // in case it wasn't closed already
-			ctx.Logf(base.LevelInfo, base.KeyHTTP, "%s:    --> BLIP+WebSocket connection closed", h.formatSerialNumber())
+			base.InfofCtx(ctx.blipContextDb.Ctx, base.KeyHTTP, "%s:    --> BLIP+WebSocket connection closed", h.formatSerialNumber())
 		}()
 		defaultHandler(conn)
 	}
@@ -221,12 +221,12 @@ func (ctx *blipSyncContext) register(profile string, handlerFn func(*blipHandler
 			if response := rq.Response(); response != nil {
 				response.SetError("HTTP", status, msg)
 			}
-			ctx.Logf(base.LevelInfo, base.KeySyncMsg, "#%d: Type:%s   --> %d %s Time:%v", handler.serialNumber, profile, status, msg, time.Since(startTime))
+			base.InfofCtx(ctx.blipContextDb.Ctx, base.KeySyncMsg, "#%d: Type:%s   --> %d %s Time:%v", handler.serialNumber, profile, status, msg, time.Since(startTime))
 		} else {
 
 			// Log the fact that the handler has finished, except for the "subChanges" special case which does it's own termination related logging
 			if profile != "subChanges" {
-				ctx.Logf(base.LevelDebug, base.KeySyncMsg, "#%d: Type:%s   --> OK Time:%v", handler.serialNumber, profile, time.Since(startTime))
+				base.DebugfCtx(ctx.blipContextDb.Ctx, base.KeySyncMsg, "#%d: Type:%s   --> OK Time:%v", handler.serialNumber, profile, time.Since(startTime))
 			}
 		}
 	}
@@ -251,24 +251,9 @@ func (ctx *blipSyncContext) close() {
 
 // Handler for unknown requests
 func (ctx *blipSyncContext) notFound(rq *blip.Message) {
-	ctx.Logf(base.LevelInfo, base.KeySync, "%s Type:%q", rq, rq.Profile())
-	ctx.Logf(base.LevelInfo, base.KeySync, "%s    --> 404 Unknown profile", rq)
+	base.InfofCtx(ctx.blipContextDb.Ctx, base.KeySync, "%s Type:%q", rq, rq.Profile())
+	base.InfofCtx(ctx.blipContextDb.Ctx, base.KeySync, "%s    --> 404 Unknown profile", rq)
 	blip.Unhandled(rq)
-}
-
-func (ctx *blipSyncContext) Logf(logLevel base.LogLevel, logKey base.LogKey, format string, args ...interface{}) {
-	switch logLevel {
-	case base.LevelError:
-		base.ErrorfCtx(ctx.blipContextDb.Ctx, format, args...)
-	case base.LevelWarn:
-		base.WarnfCtx(ctx.blipContextDb.Ctx, format, args...)
-	case base.LevelInfo:
-		base.InfofCtx(ctx.blipContextDb.Ctx, logKey, format, args...)
-	case base.LevelDebug:
-		base.DebugfCtx(ctx.blipContextDb.Ctx, logKey, format, args...)
-	case base.LevelTrace:
-		base.TracefCtx(ctx.blipContextDb.Ctx, logKey, format, args...)
-	}
 }
 
 //////// CHECKPOINTS
@@ -336,12 +321,8 @@ func (bh *blipHandler) handleSubChanges(rq *blip.Message) error {
 
 	bh.gotSubChanges = true
 
-	subChangesParams, err := newSubChangesParams(
-		rq,
-		bh.blipSyncContext,
-		bh.db.CreateZeroSinceValue(),
-		bh.db.ParseSequenceID,
-	)
+	logCtx := bh.blipSyncContext.blipContextDb.Ctx
+	subChangesParams, err := newSubChangesParams(logCtx, rq, bh.db.CreateZeroSinceValue(), bh.db.ParseSequenceID)
 	if err != nil {
 		return base.HTTPErrorf(http.StatusBadRequest, "Invalid subChanges parameters")
 	}
@@ -395,7 +376,7 @@ func (bh *blipHandler) handleSubChanges(rq *blip.Message) error {
 		// sendChanges runs until blip context closes, or fails due to error
 		startTime := time.Now()
 		bh.sendChanges(rq.Sender, subChangesParams)
-		bh.Logf(base.LevelDebug, base.KeySyncMsg, "#%d: Type:%s   --> Time:%v", bh.serialNumber, rq.Profile(), time.Since(startTime))
+		base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySyncMsg, "#%d: Type:%s   --> Time:%v", bh.serialNumber, rq.Profile(), time.Since(startTime))
 	}()
 
 	return nil
@@ -409,7 +390,7 @@ func (bh *blipHandler) sendChanges(sender *blip.Sender, params *subChangesParams
 		}
 	}()
 
-	bh.Logf(base.LevelInfo, base.KeySync, "Sending changes since %v", params.since())
+	base.InfofCtx(bh.blipContextDb.Ctx, base.KeySync, "Sending changes since %v", params.since())
 
 	options := db.ChangesOptions{
 		Since:        params.since(),
@@ -442,7 +423,7 @@ func (bh *blipHandler) sendChanges(sender *blip.Sender, params *subChangesParams
 	// and blipSyncContext user access.
 	changesDb := bh.copyContextDatabase()
 	_, forceClose := generateBlipSyncChanges(changesDb, channelSet, options, params.docIDs(), func(changes []*db.ChangeEntry) error {
-		bh.Logf(base.LevelDebug, base.KeySync, "    Sending %d changes", len(changes))
+		base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySync, "    Sending %d changes", len(changes))
 		for _, change := range changes {
 
 			if !strings.HasPrefix(change.ID, "_") {
@@ -497,7 +478,7 @@ func (bh *blipHandler) sendBatchOfChanges(sender *blip.Sender, changeArray [][]i
 	outrq.SetProfile("changes")
 	err := outrq.SetJSONBody(changeArray)
 	if err != nil {
-		bh.Logf(base.LevelInfo, base.KeyAll, "Error setting changes: %v", err)
+		base.InfofCtx(bh.blipContextDb.Ctx, base.KeyAll, "Error setting changes: %v", err)
 	}
 
 	if len(changeArray) > 0 {
@@ -515,7 +496,7 @@ func (bh *blipHandler) sendBatchOfChanges(sender *blip.Sender, changeArray [][]i
 		// Spawn a goroutine to await the client's response:
 		go func(bh *blipHandler, sender *blip.Sender, response *blip.Message, changeArray [][]interface{}, sendTime time.Time, database *db.Database) {
 			if err := bh.handleChangesResponse(sender, response, changeArray, sendTime, database); err != nil {
-				bh.Logf(base.LevelError, base.KeyAll, "Error from bh.handleChangesResponse: %v", err)
+				base.ErrorfCtx(bh.blipContextDb.Ctx, "Error from bh.handleChangesResponse: %v", err)
 			}
 		}(bh, sender, outrq.Response(), changeArray, sendTime, handleChangesResponseDb)
 	} else {
@@ -527,9 +508,9 @@ func (bh *blipHandler) sendBatchOfChanges(sender *blip.Sender, changeArray [][]i
 
 	if len(changeArray) > 0 {
 		sequence := changeArray[0][0].(db.SequenceID)
-		bh.Logf(base.LevelInfo, base.KeySync, "Sent %d changes to client, from seq %s", len(changeArray), sequence.String())
+		base.InfofCtx(bh.blipContextDb.Ctx, base.KeySync, "Sent %d changes to client, from seq %s", len(changeArray), sequence.String())
 	} else {
-		bh.Logf(base.LevelInfo, base.KeySync, "Sent all changes to client")
+		base.InfofCtx(bh.blipContextDb.Ctx, base.KeySync, "Sent all changes to client")
 	}
 
 	return nil
@@ -552,7 +533,7 @@ func (bc *blipSyncContext) handleChangesResponse(sender *blip.Sender, response *
 	var answer []interface{}
 	if err := response.ReadJSONBody(&answer); err != nil {
 		body, _ := response.Body()
-		bc.Logf(base.LevelError, base.KeyAll, "Invalid response to 'changes' message: %s -- %s.  Body: %s", response, err, body)
+		base.ErrorfCtx(bc.blipContextDb.Ctx, "Invalid response to 'changes' message: %s -- %s.  Body: %s", response, err, body)
 		return nil
 	}
 	changesResponseReceived := time.Now()
@@ -569,7 +550,7 @@ func (bc *blipSyncContext) handleChangesResponse(sender *blip.Sender, response *
 	if clientDeltasStr, ok := response.Properties[changesResponseDeltas]; ok {
 		bc.setUseDeltas(clientDeltasStr == "true")
 	} else {
-		bc.Logf(base.LevelTrace, base.KeySync, "Client didn't specify 'deltas' property in 'changes' response. useDeltas: %v", bc.useDeltas)
+		base.TracefCtx(bc.blipContextDb.Ctx, base.KeySync, "Client didn't specify 'deltas' property in 'changes' response. useDeltas: %v", bc.useDeltas)
 	}
 
 	// Maps docID --> a map containing true for revIDs known to the client
@@ -603,7 +584,7 @@ func (bc *blipSyncContext) handleChangesResponse(sender *blip.Sender, response *
 				if revID, ok := rev.(string); ok {
 					knownRevs[revID] = true
 				} else {
-					bc.Logf(base.LevelError, base.KeyAll, "Invalid response to 'changes' message")
+					base.ErrorfCtx(bc.blipContextDb.Ctx, "Invalid response to 'changes' message")
 					return nil
 				}
 			}
@@ -673,7 +654,7 @@ func (bh *blipHandler) handleChanges(rq *blip.Message) error {
 		} else {
 			err := jsonOutput.Encode(possible)
 			if err != nil {
-				bh.Logf(base.LevelInfo, base.KeyAll, "Error encoding json: %v", err)
+				base.InfofCtx(bh.blipContextDb.Ctx, base.KeyAll, "Error encoding json: %v", err)
 			}
 		}
 		nWritten++
@@ -729,7 +710,7 @@ func (bh *blipHandler) handleProposeChanges(rq *blip.Message) error {
 	output.Write([]byte("]"))
 	response := rq.Response()
 	if bh.sgCanUseDeltas {
-		bh.Logf(base.LevelDebug, base.KeyAll, "Setting deltas=true property on proposeChanges response")
+		base.DebugfCtx(bh.blipContextDb.Ctx, base.KeyAll, "Setting deltas=true property on proposeChanges response")
 		response.Properties[changesResponseDeltas] = "true"
 	}
 	response.SetCompressed(true)
@@ -747,7 +728,7 @@ func (bc *blipSyncContext) sendRevAsDelta(sender *blip.Sender, docID, revID, del
 	if err == db.ErrForbidden {
 		return err
 	} else if err != nil {
-		bc.Logf(base.LevelInfo, base.KeySync, "DELTA: error generating delta from %s to %s for key %s; falling back to full body replication.  err: %v", deltaSrcRevID, revID, base.UD(docID), err)
+		base.InfofCtx(bc.blipContextDb.Ctx, base.KeySync, "DELTA: error generating delta from %s to %s for key %s; falling back to full body replication.  err: %v", deltaSrcRevID, revID, base.UD(docID), err)
 		return bc.sendRevision(sender, docID, revID, seq, knownRevs, maxHistory, handleChangesResponseDb)
 	}
 
@@ -758,11 +739,11 @@ func (bc *blipSyncContext) sendRevAsDelta(sender *blip.Sender, docID, revID, del
 	}
 
 	if revDelta == nil {
-		bc.Logf(base.LevelDebug, base.KeySync, "DELTA: unable to generate delta from %s to %s for key %s; falling back to full body replication.", deltaSrcRevID, revID, base.UD(docID))
+		base.DebugfCtx(bc.blipContextDb.Ctx, base.KeySync, "DELTA: unable to generate delta from %s to %s for key %s; falling back to full body replication.", deltaSrcRevID, revID, base.UD(docID))
 		return bc.sendRevision(sender, docID, revID, seq, knownRevs, maxHistory, handleChangesResponseDb)
 	}
 
-	bc.Logf(base.LevelTrace, base.KeySync, "docID: %s - delta: %v", base.UD(docID), base.UD(string(revDelta.DeltaBytes)))
+	base.TracefCtx(bc.blipContextDb.Ctx, base.KeySync, "docID: %s - delta: %v", base.UD(docID), base.UD(string(revDelta.DeltaBytes)))
 	if err := bc.sendDelta(sender, docID, deltaSrcRevID, revDelta, seq); err != nil {
 		return err
 	}
@@ -777,13 +758,13 @@ func (bc *blipSyncContext) sendDelta(sender *blip.Sender, docID, deltaSrcRevID s
 	properties := blipRevMessageProperties(revDelta.RevisionHistory, revDelta.ToDeleted, seq)
 	properties[revMessageDeltaSrc] = deltaSrcRevID
 
-	bc.Logf(base.LevelDebug, base.KeySync, "Sending rev %q %s as delta. DeltaSrc:%s", base.UD(docID), revDelta.ToRevID, deltaSrcRevID)
+	base.DebugfCtx(bc.blipContextDb.Ctx, base.KeySync, "Sending rev %q %s as delta. DeltaSrc:%s", base.UD(docID), revDelta.ToRevID, deltaSrcRevID)
 	return bc.sendRevisionWithProperties(sender, docID, revDelta.ToRevID, revDelta.DeltaBytes, revDelta.AttachmentDigests, properties)
 }
 
 func (bc *blipSyncContext) sendNoRev(sender *blip.Sender, docID, revID string, err error) error {
 
-	bc.Logf(base.LevelDebug, base.KeySync, "Sending norev %q %s due to unavailable revision: %v", base.UD(docID), revID, err)
+	base.DebugfCtx(bc.blipContextDb.Ctx, base.KeySync, "Sending norev %q %s due to unavailable revision: %v", base.UD(docID), revID, err)
 
 	noRevRq := NewNoRevMessage()
 	noRevRq.setId(docID)
@@ -838,7 +819,7 @@ func (bc *blipSyncContext) sendRevision(sender *blip.Sender, docID, revID string
 		}
 	}
 
-	bc.Logf(base.LevelDebug, base.KeySync, "Sending rev %q %s based on %d known", base.UD(docID), revID, len(knownRevs))
+	base.DebugfCtx(bc.blipContextDb.Ctx, base.KeySync, "Sending rev %q %s based on %d known", base.UD(docID), revID, len(knownRevs))
 
 	history := toHistory(rev.History, knownRevs, maxHistory)
 	properties := blipRevMessageProperties(history, rev.Deleted, seq)
@@ -923,7 +904,7 @@ func (bc *blipSyncContext) sendRevisionWithProperties(sender *blip.Sender, docID
 	if response := outrq.Response(); response != nil {
 		if response.Type() == blip.ErrorType {
 			errorBody, _ := response.Body()
-			bc.Logf(base.LevelWarn, base.KeyAll, "Client returned error in rev response for doc %q / %q: %s", base.UD(docID), revID, errorBody)
+			base.WarnfCtx(bc.blipContextDb.Ctx, "Client returned error in rev response for doc %q / %q: %s", base.UD(docID), revID, errorBody)
 		}
 	}
 
@@ -931,7 +912,7 @@ func (bc *blipSyncContext) sendRevisionWithProperties(sender *blip.Sender, docID
 }
 
 func (bh *blipHandler) handleNoRev(rq *blip.Message) error {
-	bh.Logf(base.LevelInfo, base.KeySyncMsg, "%s: norev for doc %q / %q - error: %q - reason: %q",
+	base.InfofCtx(bh.blipContextDb.Ctx, base.KeySyncMsg, "%s: norev for doc %q / %q - error: %q - reason: %q",
 		rq.String(), base.UD(rq.Properties[norevMessageId]), rq.Properties[norevMessageRev], rq.Properties[norevMessageError], rq.Properties[norevMessageReason])
 
 	// Couchbase Lite always sense noreply=true for norev profiles
@@ -954,7 +935,7 @@ func (bh *blipHandler) handleRev(rq *blip.Message) error {
 	//addRevisionParams := newAddRevisionParams(rq)
 	revMessage := revMessage{Message: rq}
 
-	bh.Logf(base.LevelDebug, base.KeySyncMsg, "#%d: Type:%s %s", bh.serialNumber, rq.Profile(), revMessage.String())
+	base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySyncMsg, "#%d: Type:%s %s", bh.serialNumber, rq.Profile(), revMessage.String())
 
 	bodyBytes, err := rq.Body()
 	if err != nil {
@@ -1013,7 +994,7 @@ func (bh *blipHandler) handleRev(rq *blip.Message) error {
 		}
 
 		newDoc.UpdateBody(deltaSrcMap)
-		bh.Logf(base.LevelTrace, base.KeySync, "docID: %s - body after patching: %v", base.UD(docID), base.UD(deltaSrcMap))
+		base.TracefCtx(bh.blipContextDb.Ctx, base.KeySync, "docID: %s - body after patching: %v", base.UD(docID), base.UD(deltaSrcMap))
 		bh.dbStats.StatsDeltaSync().Add(base.StatKeyDeltaPushDocCount, 1)
 	}
 
@@ -1095,7 +1076,7 @@ func (bh *blipHandler) handleGetAttachment(rq *blip.Message) error {
 		return err
 
 	}
-	bh.Logf(base.LevelDebug, base.KeySync, "Sending attachment with digest=%q (%dkb)", digest, len(attachment)/1024)
+	base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySync, "Sending attachment with digest=%q (%dkb)", digest, len(attachment)/1024)
 	response := rq.Response()
 	response.SetBody(attachment)
 	response.SetCompressed(rq.Properties[blipCompress] == "true")
@@ -1115,7 +1096,7 @@ func (bh *blipHandler) downloadOrVerifyAttachments(sender *blip.Sender, body db.
 				// security purposes I do need the client to _prove_ it has the data, otherwise if
 				// it knew the digest it could acquire the data by uploading a document with the
 				// claimed attachment, then downloading it.
-				bh.Logf(base.LevelDebug, base.KeySync, "    Verifying attachment %q (digest %s)", base.UD(name), digest)
+				base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySync, "    Verifying attachment %q (digest %s)", base.UD(name), digest)
 				nonce, proof := db.GenerateProofOfAttachment(knownData)
 				outrq := blip.NewRequest()
 				outrq.Properties = map[string]string{blipProfile: messageProveAttachment, proveAttachmentDigest: digest}
@@ -1126,13 +1107,13 @@ func (bh *blipHandler) downloadOrVerifyAttachments(sender *blip.Sender, body db.
 				if body, err := outrq.Response().Body(); err != nil {
 					return nil, err
 				} else if string(body) != proof {
-					bh.Logf(base.LevelWarn, base.KeySync, "Incorrect proof for attachment %s : I sent nonce %x, expected proof %q, got %q", digest, base.MD(nonce), base.MD(proof), base.MD(string(body)))
+					base.WarnfCtx(bh.blipContextDb.Ctx, "Incorrect proof for attachment %s : I sent nonce %x, expected proof %q, got %q", digest, base.MD(nonce), base.MD(proof), base.MD(string(body)))
 					return nil, base.HTTPErrorf(http.StatusForbidden, "Incorrect proof for attachment %s", digest)
 				}
 				return nil, nil
 			} else {
 				// If I don't have the attachment, I will request it from the client:
-				bh.Logf(base.LevelDebug, base.KeySync, "    Asking for attachment %q (digest %s)", base.UD(name), digest)
+				base.DebugfCtx(bh.blipContextDb.Ctx, base.KeySync, "    Asking for attachment %q (digest %s)", base.UD(name), digest)
 				outrq := blip.NewRequest()
 				outrq.Properties = map[string]string{blipProfile: messageGetAttachment, getAttachmentDigest: digest}
 				if isCompressible(name, meta) {
@@ -1212,7 +1193,7 @@ func (ctx *blipSyncContext) setUseDeltas(clientCanUseDeltas bool) {
 	// Both sides want deltas
 	if ctx.sgCanUseDeltas && clientCanUseDeltas {
 		if !ctx.useDeltas {
-			ctx.Logf(base.LevelDebug, base.KeySync, "Enabling deltas for this replication")
+			base.DebugfCtx(ctx.blipContextDb.Ctx, base.KeySync, "Enabling deltas for this replication")
 			ctx.dbStats.StatsDeltaSync().Add(base.StatKeyDeltaPullReplicationCount, 1)
 			ctx.useDeltas = true
 		}
@@ -1221,13 +1202,13 @@ func (ctx *blipSyncContext) setUseDeltas(clientCanUseDeltas bool) {
 
 	// Log when the client doesn't want deltas, but we do
 	if ctx.sgCanUseDeltas && !clientCanUseDeltas {
-		ctx.Logf(base.LevelInfo, base.KeySync, "Disabling deltas for this replication based on client setting.")
+		base.InfofCtx(ctx.blipContextDb.Ctx, base.KeySync, "Disabling deltas for this replication based on client setting.")
 	}
 	ctx.useDeltas = false
 }
 
 func (bh *blipHandler) logEndpointEntry(profile, endpoint string) {
-	bh.Logf(base.LevelInfo, base.KeySyncMsg, "#%d: Type:%s %s", bh.serialNumber, profile, endpoint)
+	base.InfofCtx(bh.blipContextDb.Ctx, base.KeySyncMsg, "#%d: Type:%s %s", bh.serialNumber, profile, endpoint)
 }
 
 func DefaultBlipLogger(ctx context.Context) blip.LogFn {
