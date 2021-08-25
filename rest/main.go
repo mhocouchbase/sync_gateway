@@ -44,13 +44,8 @@ func serverMain(ctx context.Context, osArgs []string) error {
 	// register config property flags
 	flagStartupConfig := NewEmptyStartupConfig()
 
-	legacyFlagStartupConfig := registerLegacyFlags(fs)
-	err := flagStartupConfig.Merge(legacyFlagStartupConfig)
-	if err != nil {
-		return fmt.Errorf("error merging legacy flags on to config: %w", err)
-	}
-
 	configFlags := registerConfigFlags(&flagStartupConfig, fs)
+	legacyConfigFlags := registerLegacyFlags(&flagStartupConfig, fs)
 
 	if err := fs.Parse(osArgs[1:]); err != nil {
 		// Return nil for ErrHelp so the shell exit code is 0
@@ -60,9 +55,14 @@ func serverMain(ctx context.Context, osArgs []string) error {
 		return err
 	}
 
-	err = fillConfigWithFlags(fs, configFlags)
+	err := fillConfigWithFlags(fs, configFlags)
 	if err != nil {
-		return err
+		return fmt.Errorf("error merging flags on to config: %w", err)
+	}
+
+	err = fillConfigWithLegacyFlags(legacyConfigFlags, fs, flagStartupConfig.Logging.Console.LogLevel != nil)
+	if err != nil {
+		return fmt.Errorf("error merging legacy flags on to config: %w", err)
 	}
 
 	if *disablePersistentConfigFlag {
