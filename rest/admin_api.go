@@ -63,7 +63,8 @@ func (h *handler) handleCreateDB() error {
 			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't save database config: %v", err)
 		}
 
-		if err := config.setup(dbName, h.server.config.Bootstrap); err != nil {
+		dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+		if err := config.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 			return err
 		}
 
@@ -72,7 +73,7 @@ func (h *handler) handleCreateDB() error {
 			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't load database: %v", err)
 		}
 	} else {
-		if err := config.setup(dbName, h.server.config.Bootstrap); err != nil {
+		if err := config.setup(dbName, h.server.config.Bootstrap, nil); err != nil {
 			return err
 		}
 
@@ -160,6 +161,13 @@ func (h *handler) handleGetDbConfig() error {
 			responseConfig.cas = 0
 			h.server.applyConfigs(map[string]DatabaseConfig{h.db.Name: *responseConfig})
 		}
+
+		// Strip out bootstrap credentials that are stamped into the config
+		responseConfig.Username = ""
+		responseConfig.Password = ""
+		responseConfig.CACertPath = ""
+		responseConfig.KeyPath = ""
+		responseConfig.CertPath = ""
 	} else {
 		// non-persistent mode just returns running database config
 		responseConfig = h.server.GetDatabaseConfig(h.db.Name)
@@ -198,13 +206,6 @@ func (h *handler) handleGetDbConfig() error {
 			}
 		}
 	}
-
-	// Strip out credentials that are stamped into the config
-	responseConfig.Username = ""
-	responseConfig.Password = ""
-	responseConfig.CACertPath = ""
-	responseConfig.KeyPath = ""
-	responseConfig.CertPath = ""
 
 	h.writeJSON(responseConfig)
 	return nil
@@ -469,7 +470,8 @@ func (h *handler) handlePutDbConfig() (err error) {
 		updatedDbConfig.cas = cas
 	}
 
-	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap); err != nil {
+	dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 		return err
 	}
 
@@ -556,7 +558,8 @@ func (h *handler) handleDeleteDbConfigSync() error {
 	updatedDbConfig.cas = cas
 
 	dbName := h.db.Name
-	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap); err != nil {
+	dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 		return err
 	}
 
@@ -616,7 +619,8 @@ func (h *handler) handlePutDbConfigSync() error {
 	updatedDbConfig.cas = cas
 
 	dbName := h.db.Name
-	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap); err != nil {
+	dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 		return err
 	}
 
@@ -699,7 +703,8 @@ func (h *handler) handleDeleteDbConfigImportFilter() error {
 	updatedDbConfig.cas = cas
 
 	dbName := h.db.Name
-	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap); err != nil {
+	dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 		return err
 	}
 
@@ -760,7 +765,8 @@ func (h *handler) handlePutDbConfigImportFilter() error {
 	updatedDbConfig.cas = cas
 
 	dbName := h.db.Name
-	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap); err != nil {
+	dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
+	if err := updatedDbConfig.setup(dbName, h.server.config.Bootstrap, dbCreds); err != nil {
 		return err
 	}
 
