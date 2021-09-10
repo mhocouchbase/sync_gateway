@@ -58,9 +58,9 @@ func (h *handler) handleCreateDB() error {
 			bucket = *config.Bucket
 		}
 
-		config.cas, err = h.server.bootstrapContext.connection.InsertConfig(bucket, h.server.config.Bootstrap.ConfigGroupID, config)
-		if err != nil {
-			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't save database config: %v", err)
+		var persistedConfig DbConfig
+		if err := base.DeepCopyInefficient(&persistedConfig, config); err != nil {
+			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't create copy of db config: %v", err)
 		}
 
 		dbCreds, _ := h.server.config.DatabaseCredentials[dbName]
@@ -68,9 +68,20 @@ func (h *handler) handleCreateDB() error {
 			return err
 		}
 
-		_, err := h.server.applyConfig(*config)
+		h.server.lock.Lock()
+		defer h.server.lock.Unlock()
+
+		_, err := h.server._applyConfig(*config)
 		if err != nil {
 			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't load database: %v", err)
+		}
+
+		// now we've started the db successfully, we can persist it to the cluster
+		config.cas, err = h.server.bootstrapContext.connection.InsertConfig(bucket, h.server.config.Bootstrap.ConfigGroupID, persistedConfig)
+		if err != nil {
+			// unload the database to prevent the cluster being in an inconsistent state
+			h.server._removeDatabase(dbName)
+			return base.HTTPErrorf(http.StatusInternalServerError, "couldn't save database config: %v", err)
 		}
 	} else {
 		if err := config.setup(dbName, h.server.config.Bootstrap, nil); err != nil {
@@ -448,7 +459,6 @@ func (h *handler) handlePutDbConfig() (err error) {
 					return nil, err
 				}
 
-				// TODO: CBG-1619 We're validating but we're not actually starting up the database before we persist the update!
 				if err := dbConfig.validatePersistentDbConfig(); err != nil {
 					return nil, base.HTTPErrorf(http.StatusBadRequest, err.Error())
 				}
