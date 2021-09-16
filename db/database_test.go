@@ -200,7 +200,7 @@ func TestDatabase(t *testing.T) {
 
 	gotbody, err = db.Get1xRevBody("doc1", "bogusrev", false, nil)
 	status, _ := base.ErrorAsHTTPStatus(err)
-	goassert.Equals(t, status, 404)
+	goassert.Equals(t, status, 422)
 
 	// Test the _revisions property:
 	log.Printf("Check _revisions...")
