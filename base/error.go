@@ -203,7 +203,7 @@ func IsDocNotFoundError(err error) bool {
 	case sgbucket.MissingError:
 		return true
 	case *HTTPError:
-		return unwrappedErr.Status == http.StatusNotFound || unwrappedErr.Status == http.StatusUnprocessableEntity
+		return unwrappedErr.Status == http.StatusNotFound
 	default:
 		return false
 	}

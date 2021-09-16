@@ -229,7 +229,7 @@ func (db *DatabaseContext) getOldRevisionJSON(docid string, revid string) ([]byt
 	data, _, err := db.Bucket.GetRaw(oldRevisionKey(docid, revid))
 	if base.IsDocNotFoundError(err) {
 		base.Debugf(base.KeyCRUD, "No old revision %q / %q", base.UD(docid), revid)
-		err = base.HTTPErrorf(422, "missing")
+		err = base.HTTPErrorf(404, "missing")
 	}
 	if data != nil {
 		// Strip out the non-JSON prefix

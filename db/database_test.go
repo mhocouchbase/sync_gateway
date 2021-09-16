@@ -200,7 +200,7 @@ func TestDatabase(t *testing.T) {
 
 	gotbody, err = db.Get1xRevBody("doc1", "bogusrev", false, nil)
 	status, _ := base.ErrorAsHTTPStatus(err)
-	goassert.Equals(t, status, 422)
+	goassert.Equals(t, status, 404)
 
 	// Test the _revisions property:
 	log.Printf("Check _revisions...")
@@ -372,7 +372,7 @@ func TestGetRemovedAsUser(t *testing.T) {
 	assert.NoError(t, err, "Purge old revision JSON")
 
 	_, err = db.Get1xRevBody("doc1", rev1id, true, nil)
-	assertHTTPError(t, err, 422)
+	assertHTTPError(t, err, 404)
 }
 
 // Test removal handling for unavailable multi-channel revisions.
@@ -671,7 +671,7 @@ func TestGetRemoved(t *testing.T) {
 	assert.NoError(t, err, "Purge old revision JSON")
 
 	_, err = db.Get1xRevBody("doc1", rev1id, true, nil)
-	assertHTTPError(t, err, 422)
+	assertHTTPError(t, err, 404)
 }
 
 // Test retrieval of a channel removal revision, when the revision is not otherwise available
@@ -737,7 +737,7 @@ func TestGetRemovedAndDeleted(t *testing.T) {
 	assert.NoError(t, err, "Purge old revision JSON")
 
 	_, err = db.Get1xRevBody("doc1", rev1id, true, nil)
-	assertHTTPError(t, err, 422)
+	assertHTTPError(t, err, 404)
 }
 
 type AllDocsEntry struct {

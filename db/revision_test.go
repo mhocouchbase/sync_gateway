@@ -117,7 +117,7 @@ func TestBackupOldRevision(t *testing.T) {
 	// make sure we didn't accidentally store an empty old revision
 	_, err = db.getOldRevisionJSON(docID, "")
 	assert.Error(t, err)
-	assert.Equal(t, "422 missing", err.Error())
+	assert.Equal(t, "404 missing", err.Error())
 
 	// check for current rev backup in xattr+delta case (to support deltas by sdk imports)
 	_, err = db.getOldRevisionJSON(docID, rev1ID)
@@ -125,7 +125,7 @@ func TestBackupOldRevision(t *testing.T) {
 		require.NoError(t, err)
 	} else {
 		require.Error(t, err)
-		assert.Equal(t, "422 missing", err.Error())
+		assert.Equal(t, "404 missing", err.Error())
 	}
 
 	// create rev 2 and check backups for both revs
@@ -143,7 +143,7 @@ func TestBackupOldRevision(t *testing.T) {
 		require.NoError(t, err)
 	} else {
 		require.Error(t, err)
-		assert.Equal(t, "422 missing", err.Error())
+		assert.Equal(t, "404 missing", err.Error())
 	}
 }
 

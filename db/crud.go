@@ -480,7 +480,7 @@ func (db *DatabaseContext) getRevision(doc *Document, revid string) (bodyBytes [
 	// No inline body, so look for separate doc:
 	if bodyBytes == nil {
 		if !doc.History.contains(revid) {
-			return nil, nil, nil, base.HTTPErrorf(422, "missing")
+			return nil, nil, nil, base.HTTPErrorf(404, "missing")
 		}
 
 		bodyBytes, err = db.getOldRevisionJSON(doc.ID, revid)
@@ -597,7 +597,7 @@ func (db *Database) getRevisionBodyJSON(doc *Document, revid string) ([]byte, er
 	if body := doc.getRevisionBodyJSON(revid, db.RevisionBodyLoader); body != nil {
 		return body, nil
 	} else if !doc.History.contains(revid) {
-		return nil, base.HTTPErrorf(422, "missing")
+		return nil, base.HTTPErrorf(404, "missing")
 	} else {
 		return db.getOldRevisionJSON(doc.ID, revid)
 	}
