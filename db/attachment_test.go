@@ -78,7 +78,7 @@ func TestBackupOldRevisionWithAttachments(t *testing.T) {
 	} else {
 		// current revs aren't backed up unless both xattrs and deltas are enabled
 		require.Error(t, err)
-		assert.Equal(t, "404 missing", err.Error())
+		assert.Equal(t, "422 missing", err.Error())
 	}
 
 	// create rev 2 and check backups for both revs
@@ -102,7 +102,7 @@ func TestBackupOldRevisionWithAttachments(t *testing.T) {
 	} else {
 		// current revs aren't backed up unless both xattrs and deltas are enabled
 		require.Error(t, err)
-		assert.Equal(t, "404 missing", err.Error())
+		assert.Equal(t, "422 missing", err.Error())
 	}
 }
 
