@@ -1874,7 +1874,7 @@ func TestImportRevisionCopyUnavailable(t *testing.T) {
 
 	// 6. Attempt to retrieve previous revision body.  Should return missing, as rev wasn't in rev cache when import occurred.
 	response = rt.SendAdminRequest("GET", fmt.Sprintf("/db/%s?rev=%s", key, rev1id), "")
-	goassert.Equals(t, response.Code, 404)
+	goassert.Equals(t, response.Code, 422)
 }
 
 // Verify config flag for import creation of backup revision on import
@@ -1935,7 +1935,7 @@ func TestImportRevisionCopyDisabled(t *testing.T) {
 
 	// 6. Attempt to retrieve previous revision body.  Should fail, as backup wasn't persisted
 	response = rt.SendAdminRequest("GET", fmt.Sprintf("/db/%s?rev=%s", key, rev1id), "")
-	goassert.Equals(t, response.Code, 404)
+	goassert.Equals(t, response.Code, 422)
 }
 
 // Test DCP backfill stats

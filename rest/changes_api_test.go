@@ -181,7 +181,7 @@ func TestDocDeletionFromChannel(t *testing.T) {
 
 	// A bogus rev ID should return a 404:
 	response = rt.Send(requestByUser("GET", "/db/alpha?rev=bogus", "", "alice"))
-	assert.Equal(t, 422, response.Code)
+	assert.Equal(t, 404, response.Code)
 
 	// Get the old revision, which should still be accessible:
 	response = rt.Send(requestByUser("GET", "/db/alpha?rev="+rev1, "", "alice"))

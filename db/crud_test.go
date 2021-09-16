@@ -436,7 +436,7 @@ func TestRevisionStoragePruneTombstone(t *testing.T) {
 	log.Printf("Attempt to retrieve 3-b, expect pruned")
 	db.FlushRevisionCacheForTest()
 	rev3bGet, err = db.Get1xRevBody("doc1", "3-b", false, nil)
-	goassert.Equals(t, err.Error(), "422 missing")
+	goassert.Equals(t, err.Error(), "404 missing")
 
 	// Ensure previous tombstone body backup has been removed
 	log.Printf("Verify revision body doc has been removed from bucket")
@@ -1144,7 +1144,7 @@ func TestGet1xRevFromDoc(t *testing.T) {
 	// which doesn't exists in the revision tree. The revision "3-a" doesn't exists in database.
 	bodyBytes, removed, err = db.get1xRevFromDoc(doc, "3-a", true)
 	assert.Error(t, err, "It should throw 404 missing error")
-	assert.Contains(t, err.Error(), "422 missing")
+	assert.Contains(t, err.Error(), "404 missing")
 	assert.Empty(t, bodyBytes, "Provided revision doesn't exists")
 	assert.False(t, removed, "This shouldn't be a removed revision")
 	assert.Error(t, response.Unmarshal(bodyBytes), "Unexpected empty JSON input to body.Unmarshal")

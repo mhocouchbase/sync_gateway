@@ -224,7 +224,7 @@ func (body Body) getExpiry() (uint32, bool, error) {
 const nonJSONPrefix = byte(1)
 
 // Looks up the raw JSON data of a revision that's been archived to a separate doc.
-// If the revision isn't found (e.g. has been deleted by compaction) returns 404 error.
+// If the revision isn't found (e.g. has been deleted by compaction) returns 422 error.
 func (db *DatabaseContext) getOldRevisionJSON(docid string, revid string) ([]byte, error) {
 	data, _, err := db.Bucket.GetRaw(oldRevisionKey(docid, revid))
 	if base.IsDocNotFoundError(err) {

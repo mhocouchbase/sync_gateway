@@ -254,7 +254,7 @@ func TestBypassRevisionCache(t *testing.T) {
 
 	// Get non-existing revision
 	doc, err = rc.Get(key, "3-abc", RevCacheOmitBody, RevCacheOmitDelta)
-	assertHTTPError(t, err, 422)
+	assertHTTPError(t, err, 404)
 
 	// Get specific revision
 	doc, err = rc.Get(key, rev1, RevCacheOmitBody, RevCacheOmitDelta)
