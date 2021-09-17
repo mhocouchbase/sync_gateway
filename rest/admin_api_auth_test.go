@@ -20,7 +20,7 @@ func MakeUser(t *testing.T, serverURL, username, password string, roles []string
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: base.TestTLSSkipVerify(),
 			},
 		},
 	}
@@ -53,7 +53,7 @@ func DeleteUser(t *testing.T, serverURL, username string) {
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: base.TestTLSSkipVerify(),
 			},
 		},
 	}
