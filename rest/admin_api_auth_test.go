@@ -146,7 +146,7 @@ func TestCheckPermissions(t *testing.T) {
 		},
 	}
 
-	rt := NewRestTester(t, &RestTesterConfig{useTLSServer: true})
+	rt := NewRestTester(t, nil)
 	defer rt.Close()
 
 	eps, httpClient, err := rt.ServerContext().ObtainManagementEndpointsAndHTTPClient()
@@ -308,12 +308,11 @@ func TestCheckRoles(t *testing.T) {
 }
 
 func TestAdminAuth(t *testing.T) {
-	defer base.SetUpTestLogging(base.LevelDebug, base.KeyAll)()
 	if base.UnitTestUrlIsWalrus() {
 		t.Skip("Test requires Couchbase Server")
 	}
 
-	rt := NewRestTester(t, &RestTesterConfig{useTLSServer: true})
+	rt := NewRestTester(t, nil)
 	defer rt.Close()
 
 	BucketFullAccessRoleTest := fmt.Sprintf("bucket_full_access[%s]", rt.Bucket().GetName())
@@ -491,7 +490,6 @@ func TestAdminAPIAuth(t *testing.T) {
 	rt := NewRestTester(t, &RestTesterConfig{
 		adminInterfaceAuthentication:   true,
 		metricsInterfaceAuthentication: true,
-		useTLSServer:                   true,
 	})
 	defer rt.Close()
 
